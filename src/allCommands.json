@@ -1,0 +1,137 @@
+[
+	{
+		"name": "help",
+		"description": "Affiche la liste des commandes.",
+		"aliases": [
+			"get-help"
+		]
+	},
+	{
+		"name": "exec",
+		"description": "Exécute du code JS ⚠️",
+		"aliases": [
+			"execute"
+		]
+	},
+	{
+		"name": "exit",
+		"description": "Quitte le shell",
+		"aliases": [
+			"stop"
+		]
+	},
+	{
+		"name": "clear",
+		"description": "Efface le contenu du terminal.",
+		"aliases": [
+			"cls"
+		]
+	},
+	{
+		"name": "version",
+		"description": "Affiche la version du shell.",
+		"aliases": [
+			"get-version"
+		]
+	},
+	{
+		"name": "echo",
+		"description": "Répète certaines informations",
+		"aliases": [
+			"print"
+		]
+	},
+	{
+		"name": "ls",
+		"description": "Affiche la liste des fichières et dossiers.",
+		"aliases": [
+			"list",
+			"dir"
+		]
+	},
+	{
+		"name": "connect",
+		"description": "Permet de se connecter à son compte.",
+		"aliases": [
+			"login",
+			"set-token"
+		]
+	},
+	{
+		"name": "disconnect",
+		"description": "Supprime votre compte de la configuration locale",
+		"aliases": [
+			"logout",
+			"delete-token"
+		]
+	},
+	{
+		"name": "account",
+		"description": "Donne des informations sur votre compte",
+		"aliases": [
+			"get-account"
+		]
+	},
+	{
+		"name": "select",
+		"description": "Définit une sélection à partir d'un identifiant",
+		"aliases": [
+			"set-active"
+		]
+	},
+	{
+		"name": "active",
+		"description": "Affiche la sélection active",
+		"aliases": [
+			"get-active"
+		]
+	},
+	{
+		"name": "friendlist",
+		"description": "Affiche votre liste d'amis",
+		"aliases": [
+			"get-friends"
+		]
+	},
+	{
+		"name": "serverlist",
+		"description": "Affiche votre liste de serveurs",
+		"aliases": [
+			"get-servers"
+		]
+	},
+	{
+		"name": "memberlist",
+		"description": "Affiche les membres d'un serveur",
+		"aliases": [
+			"get-members"
+		]
+	},
+	{
+		"name": "messagelist",
+		"description": "Afficher les derniers messages d'un salon",
+		"aliases": [
+			"get-messages"
+		]
+	},
+	{
+		"name": "dmlist",
+		"description": "Affiche les DM et groupes",
+		"aliases": [
+			"get-dms"
+		]
+	},
+	{
+		"name": "message",
+		"description": "Permet d'envoyer un message sur la sélection active",
+		"aliases": [
+			"send",
+			"create-message"
+		]
+	},
+	{
+		"name": "leave",
+		"description": "Quitte la sélection active",
+		"aliases": []
+	}
+]
