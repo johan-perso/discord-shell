@@ -1,5 +1,5 @@
 {
-  "name": "discordshell",
+  "name": "shelldiscord",
   "version": "1.0.0",
   "description": "Un shell, pour Discord",
   "main": "index.js",
