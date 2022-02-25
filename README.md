@@ -9,8 +9,9 @@ Un client Discord, utilisable complètement depuis son Terminal, sous la forme d
 
 (vous avez besoin de [nodejs](https://nodejs.org) et [npm](https://npmjs.com/))
 ```
-$ (sudo) npm install --global discordshell
+$ (sudo) npm install --global shelldiscord
 ```
+*(le nom `discordshell` était déjà utilisé)*
 
 
 ## Avertissement
