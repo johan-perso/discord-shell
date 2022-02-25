@@ -1,0 +1,36 @@
+{
+  "name": "discordshell",
+  "version": "1.0.0",
+  "description": "Un shell, pour Discord",
+  "main": "index.js",
+  "bin": {
+    "discordshell": "index.js",
+    "ds": "index.js"
+  },
+  "keywords": [
+    "discord",
+    "client",
+    "terminal",
+    "shell",
+    "cli"
+  ],
+  "author": "JohanStickman",
+  "license": "MIT",
+  "dependencies": {
+    "chalk": "^4.1.2",
+    "discord.js": "^12.5.3",
+    "inquirer": "^8.2.0",
+    "moment": "^2.29.1",
+    "node-fetch": "^2.6.7",
+    "open": "^8.4.0",
+    "ora": "^5.4.1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/johan-perso/discord-shell.git"
+  },
+  "bugs": {
+    "url": "https://github.com/johan-perso/discord-shell/issues"
+  },
+  "homepage": "https://github.com/johan-perso/discord-shell#readme"
+}
