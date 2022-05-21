@@ -1,6 +1,6 @@
 {
   "name": "shelldiscord",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Un shell, pour Discord",
   "main": "index.js",
   "bin": {
@@ -20,6 +20,7 @@
     "chalk": "^4.1.2",
     "discord.js": "^12.5.3",
     "inquirer": "^8.2.0",
+    "inquirer-prompt-suggest": "^0.1.0",
     "moment": "^2.29.1",
     "node-fetch": "^2.6.7",
     "open": "^8.4.0",
