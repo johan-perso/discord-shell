@@ -1,5 +1,24 @@
 #!/usr/bin/env node
 
+// Lazy Load Modules
+var _require = require;
+var require = function (moduleName) {
+    var module;
+    return new Proxy(function () {
+        if (!module) {
+            module = _require(moduleName)
+        }
+        return module.apply(this, arguments)
+    }, {
+        get: function (target, name) {
+            if (!module) {
+                module = _require(moduleName)
+            }
+            return module[name];
+        }
+    })
+};
+
 // Importer quelques librairies
 const chalk = require('chalk');
 const inquirer = require('inquirer');
@@ -7,7 +26,7 @@ const fetch = require('node-fetch');
 const fs = require('fs');
 const path = require('path');
 const moment = require('moment');
-const getDirName = require('path').dirname;
+const getDirName = path.dirname;
 const readline = require('readline'); readline.emitKeypressEvents(process.stdin);
 const ora = require('ora'); var spinner = ora({ spinner: 'line' });
 const Discord = require('discord.js'); var cached_client; var accountType_bot = false; var active_selection = { id: undefined, type: undefined, data: undefined };
@@ -54,8 +73,8 @@ function connect(token){
 		if(cached_client && cached_client.user) return resolve(cached_client)
 
 		// Préparer discord.js
-		if(accountType_bot === false && !cached_client) var tempClient = new Discord.Client({ intents: ["GUILDS", "GUILD_MESSAGES", "DIRECT_MESSAGES", "GUILD_PRESENCES", "GUILD_MEMBERS"], partials: ["CHANNEL"], _tokenType: '' });
-		if(accountType_bot === true && !cached_client) var tempClient = new Discord.Client({ intents: ["GUILDS", "GUILD_MESSAGES", "DIRECT_MESSAGES", "GUILD_PRESENCES", "GUILD_MEMBERS"], partials: ["CHANNEL"] });
+		if(accountType_bot === false && !cached_client) var tempClient = new Discord.Client({ ws: { properties: { $browser: "Discord iOS" }}, _tokenType: '' });
+		if(accountType_bot === true && !cached_client) var tempClient = new Discord.Client({ ws: { properties: { $browser: "Discord iOS" }}, intents: ["GUILDS", "GUILD_MESSAGES", "DIRECT_MESSAGES", "GUILD_PRESENCES", "GUILD_MEMBERS"], partials: ["CHANNEL"] });
 
 		// Se connecter
 		tempClient.login(token).catch(err => {
@@ -75,9 +94,9 @@ function connect(token){
 
 // Fonction pour obtenir le chemin de la configuration
 function getConfigPath(){
-	if(require('os').platform() === "win32") var configPath = require('path').join(process.env.APPDATA, "johanstickman-cli", "discordshell")
-	if(require('os').platform() === "darwin") var configPath = require('path').join(require('os').homedir(), "library", "Preferences", "johanstickman-cli", "discordshell")
-	if(require('os').platform() === "linux") var configPath = require('path').join(require('os').homedir(), ".config", "johanstickman-cli", "discordshell")
+	if(require('os').platform() === "win32") var configPath = path.join(process.env.APPDATA, "johanstickman-cli", "discordshell")
+	if(require('os').platform() === "darwin") var configPath = path.join(require('os').homedir(), "library", "Preferences", "johanstickman-cli", "discordshell")
+	if(require('os').platform() === "linux") var configPath = path.join(require('os').homedir(), ".config", "johanstickman-cli", "discordshell")
 
 	return configPath;
 }
@@ -107,6 +126,13 @@ async function main(){
 			process.exit()
 		}
 
+	// Vérifier si une commande a été donné via les arguments
+		// Enlever l'argument "--noClear" si il est présent
+		if(process.argv.slice(2).includes("--noClear")) process.argv.splice(process.argv.indexOf("--noClear"), 1)
+
+		// Si il y a une commande, l'exécuter
+		if(process.argv.slice(2).length > 0) return runCommand(process.argv.slice(2).join(' '), false)
+
 	// Afficher une autre info
 	console.log(`Entrer ${chalk.yellow('help')} pour obtenir la liste des commandes.\n`)
 
@@ -114,9 +140,17 @@ async function main(){
 	enterCommand();
 }; main()
 
+// Fonction pour finaliser une commande
+function finishCommand(reAsk=true){
+	// Si on doit re-demander une commande
+	if(reAsk) return enterCommand();
+
+	// Sinon, on quitte
+	process.exit()
+}
+
 // Fonction pour entrer une commande
 function enterCommand(){
-	// Utiliser Inquirer pour demander une commande
 	inquirer.prompt([
 		{
 			type: 'input',
@@ -125,7 +159,7 @@ function enterCommand(){
 			prefix: ''
 		}
 	]).then(answers => {
-		runCommand(answers.command)
+		runCommand(answers.command, true)
 	})
 }
 
@@ -276,7 +310,7 @@ async function confirm(message='Êtes-vous sûr ?', defaultValue=false){
 }
 
 // Fonction pour lancer une commande
-async function runCommand(command){
+async function runCommand(command, reAsk){
 	// Enregister la commande dans l'historique
 	appendFile(path.join(getConfigPath(), "history.txt"), `${command}\n`, () => {})
 
@@ -288,7 +322,10 @@ async function runCommand(command){
 
 	// Obtenir des informations sur la commande entré
 		// Obtenir toutes les commandes
-		var allCommands = JSON.parse(JSON.stringify(require(path.join(__dirname, 'src','allCommands.json'))))
+		var allCommands = require(path.join(__dirname, 'src','allCommands.json'))
+		allCommands = allCommands.commands
+		allCommands = JSON.stringify(allCommands)
+		allCommands = JSON.parse(allCommands)
 
 		// Obtenir un objet à partir du nom de la commande
 		var commandObject = allCommands.find(commandObject => commandObject.name == command)
@@ -301,7 +338,7 @@ async function runCommand(command){
 		// Si on a pas trouvé de commande
 		if(!commandObject){
 			console.log(chalk.red(`Commande ${(command) ? `${chalk.yellow(command)} ` : ''}inconnue.`))
-			return enterCommand()
+			return finishCommand(reAsk)
 		}
 
 	// Si la commande est "help"
@@ -326,7 +363,7 @@ async function runCommand(command){
 		}).join('\n'))
 
 		// Appeler la fonction pour qu'on puisse entrer une commande
-		enterCommand();
+		finishCommand(reAsk);
 	}
 
 	// Si la commande est "exit"
@@ -339,7 +376,7 @@ async function runCommand(command){
 		// Si l'argument est un lien
 		if(args[0]?.startsWith("http")){
 			// Demander une confirmation
-			if(!await confirm(`Voulez-vous exécuter le lien ${chalk.yellow(args[0])} ?`, false)) return enterCommand()
+			if(!await confirm(`Voulez-vous exécuter le lien ${chalk.yellow(args[0])} ?`, false)) return finishCommand(reAsk)
 
 			// Obtenir le contenu du lien
 			var response = await fetch(args.join(' ')).then(res => res.text()).catch(err => { return `console.log(chalk.red("Erreur : ${err.message || err}"))` })
@@ -396,7 +433,7 @@ async function runCommand(command){
 					console.log(sensitiveElements.map(element => `  • ${element}`).join('\n') + '\n')
 
 					// Redemander une confirmation
-					if(!await confirm(`Êtes-vous sûr de vouloir exécuter le code ?`, false)) return enterCommand()
+					if(!await confirm(`Êtes-vous sûr de vouloir exécuter le code ?`, false)) return finishCommand(reAsk)
 				}
 
 			// Evaluer le texte
@@ -450,7 +487,7 @@ async function runCommand(command){
 						// Afficher le résultat
 						console.log(evaluation)
 						if(evaluation !== "stop_exec_environnement") askCode()
-						if(evaluation === "stop_exec_environnement") return enterCommand()
+						if(evaluation === "stop_exec_environnement") return finishCommand(reAsk)
 					}; askCode();
 
 			// Sinon, on suppose que c'est une commande
@@ -470,7 +507,7 @@ async function runCommand(command){
 					console.log(evaluation)
 
 				// Appeler la fonction pour qu'on puisse entrer une commande
-				return enterCommand()
+				return finishCommand(reAsk)
 			}
 		}
 	}
@@ -478,13 +515,13 @@ async function runCommand(command){
 	// Si la commande est "clear"
 	if(commandObject.name == "clear"){
 		console.clear()
-		enterCommand()
+		finishCommand(reAsk)
 	}
 
 	// Si la commande est "version"
 	if(commandObject.name == "version"){
 		console.log(require('./package.json').version)
-		enterCommand()
+		finishCommand(reAsk)
 	}
 
 	// Si la commande est "echo"
@@ -516,7 +553,7 @@ async function runCommand(command){
 		console.log(message)
 
 		// Appeler la fonction pour qu'on puisse entrer une commande
-		enterCommand()
+		finishCommand(reAsk)
 	}
 
 	// Si la commande est "ls"
@@ -534,13 +571,13 @@ async function runCommand(command){
 		})
 
 		// Appeler la fonction pour qu'on puisse entrer une commande
-		enterCommand()
+		finishCommand(reAsk)
 	}
 
 	// Si la commande est "connect"
 	if(commandObject.name == "connect"){
 		// Si on a pas d'argument
-		if(args.length == 0) return console.log(chalk.red(`Argument invalide. Exemple : `) + chalk.yellow('login <token>')) & enterCommand()
+		if(args.length == 0) return console.log(chalk.red(`Argument invalide. Exemple : `) + chalk.yellow('login <token>')) & finishCommand(reAsk)
 
 		// Afficher un avertissement
 		console.log(`\nL'utilisation d'un compte Discord autre qu'un robot est interdite selon les TOS.`)
@@ -548,18 +585,18 @@ async function runCommand(command){
 		console.log(`Dans ce cas, le créateur de Discord Shell n'est aucunement responsable.\n`)
 
 		// Demander une confirmation
-		if(!await confirm(`Se connecter avec ${chalk.yellow(args[0])} ?`, true)) return enterCommand()
+		if(!await confirm(`Se connecter avec ${chalk.yellow(args[0])} ?`, true)) return finishCommand(reAsk)
 
 		// Obtenir des informations sur le compte Discord
 		var discordInfo = await getDiscordAccountInfo_fromAPI(args[0])
 
 		// Si le compte a eu une erreur
-		if(discordInfo.message) return console.log(chalk.red(discordInfo.message)) & enterCommand()
+		if(discordInfo.message) return console.log(chalk.red(discordInfo.message)) & finishCommand(reAsk)
 
 		// Enregistrer le compte
 		writeFile(path.join(getConfigPath(), 'token.txt'), args[0], () => {
 			console.log(`${chalk.green(`${discordInfo.username}#${discordInfo.discriminator}`)} enregistré.`)
-			enterCommand()
+			finishCommand(reAsk)
 		})
 	}
 
@@ -570,7 +607,7 @@ async function runCommand(command){
 		console.log(`Vous pourrez vous reconnecter plus tard en utilisant votre token.\n`)
 
 		// Demander une confirmation
-		if(!await confirm(`Se déconnecter ?`, true)) return enterCommand()
+		if(!await confirm(`Se déconnecter ?`, true)) return finishCommand(reAsk)
 
 		// Donner l'ancien token
 		console.log(`Votre token était : ${chalk.cyan(fs.readFileSync(path.join(getConfigPath(), 'token.txt')))}`)
@@ -578,7 +615,7 @@ async function runCommand(command){
 		// Enregistrer le compte
 		writeFile(path.join(getConfigPath(), 'token.txt'), '', () => {
 			console.log(`Déconnecté avec succès.`)
-			enterCommand()
+			finishCommand(reAsk)
 		})
 	}
 
@@ -605,13 +642,13 @@ async function runCommand(command){
 					// Modifier le type de compte, et réessayer
 					accountType_bot = true
 					stopThisCommand = true
-					return runCommand(`${command} ${args.join(' ')}`)
+					return runCommand(`${command} ${args.join(' ')}`, reAsk)
 				}
 
 				// Appeler la fonction pour qu'on puisse entrer une commande
 				spinner.fail()
 				stopThisCommand = true
-				return enterCommand()
+				return finishCommand(reAsk)
 			})
 			if(stopThisCommand === true) return;
 
@@ -639,7 +676,7 @@ async function runCommand(command){
 		if(discordInfo.bot === true) console.log(chalk.dim(`Vous êtes un bot`))
 
 		// Appeler la fonction pour qu'on puisse entrer une commande
-		enterCommand()
+		finishCommand(reAsk)
 	}
 
 	// Si la commande est "select"
@@ -650,23 +687,23 @@ async function runCommand(command){
 		// Si le type choisi est "parent"
 		if(info[0] == "parent"){
 			// Si il n'y a pas de sélection
-			if(!active_selection?.data) return console.log(chalk.red(`Vous devez déjà avoir fait une sélection pour utiliser le type "parent".`)) & enterCommand()
+			if(!active_selection?.data) return console.log(chalk.red(`Vous devez déjà avoir fait une sélection pour utiliser le type "parent".`)) & finishCommand(reAsk)
 
 			// Si le type de la sélection actuelle est "channel"
-			if(active_selection.type === 'channel') return runCommand(`select guild:${active_selection?.data?.guild?.id}`)
+			if(active_selection.type === 'channel') return runCommand(`select guild:${active_selection?.data?.guild?.id}`, reAsk)
 
 			// Si le type de la sélection actuelle est "guild"
-			if(active_selection.type === 'guild') return runCommand(`select user:${active_selection?.data?.ownerID}`)
+			if(active_selection.type === 'guild') return runCommand(`select user:${active_selection?.data?.ownerID}`, reAsk)
 
 			// Ah on a pas trouvé de parent...
-			return console.log(chalk.red(`Aucun parent n'a été trouvé pour la sélection actuelle.`)) & enterCommand()
+			return console.log(chalk.red(`Aucun parent n'a été trouvé pour la sélection actuelle.`)) & finishCommand(reAsk)
 		}
 
 		// Si l'argument n'est pas valide
-		if(info.length != 2) return console.log(chalk.red(`L'argument n'est pas valide. Exemple : `) + chalk.yellow('select user:277825082334773251')) & enterCommand()
+		if(info.length != 2) return console.log(chalk.red(`L'argument n'est pas valide. Exemple : `) + chalk.yellow('select user:277825082334773251')) & finishCommand(reAsk)
 
 		// Si le type n'est pas valide
-		if(!['user','guild','channel','group'].includes(info[0])) return console.log(chalk.red(`Le type n'est pas valide. Exemple : `) + chalk.yellow('select user:277825082334773251')) & enterCommand()
+		if(!['user','guild','channel','group'].includes(info[0])) return console.log(chalk.red(`Le type n'est pas valide. Exemple : `) + chalk.yellow('select user:277825082334773251')) & finishCommand(reAsk)
 
 		// Se connecter
 			// Préparer une variable
@@ -689,13 +726,13 @@ async function runCommand(command){
 					// Modifier le type de compte, et réessayer
 					accountType_bot = true
 					stopThisCommand = true
-					return runCommand(`${command} ${args.join(' ')}`)
+					return runCommand(`${command} ${args.join(' ')}`, reAsk)
 				}
 
 				// Appeler la fonction pour qu'on puisse entrer une commande
 				spinner.fail()
 				stopThisCommand = true
-				return enterCommand()
+				return finishCommand(reAsk)
 			})
 			if(stopThisCommand === true) return;
 
@@ -720,12 +757,12 @@ async function runCommand(command){
 			active_selection.type = undefined
 
 			// Appeler la fonction pour qu'on puisse entrer une commande
-			return enterCommand()
+			return finishCommand(reAsk)
 		}
 
 		// Si le type choisi n'est pas le même que le résultat
-		if(info[0] == 'text' && active_selection.data.type == 'group') return runCommand('select group:' + active_selection.data.id)
-		if(info[0] == 'group' && active_selection.data.type == 'text') return runCommand('select channel:' + active_selection.data.id)
+		if(info[0] == 'text' && active_selection.data.type == 'group') return runCommand('select group:' + active_selection.data.id, reAsk)
+		if(info[0] == 'group' && active_selection.data.type == 'text') return runCommand('select channel:' + active_selection.data.id, reAsk)
 
 		// Modifier la sélection
 		active_selection.type = info[0]
@@ -736,7 +773,7 @@ async function runCommand(command){
 		else console.log(`Identifiant ${chalk.green(`${active_selection?.id}`)} sélectionné en tant que ${chalk.green(userFriendlyType)}.`)
 
 		// Appeler la fonction pour qu'on puisse entrer une commande
-		enterCommand()
+		finishCommand(reAsk)
 	}
 
 	// Si la commande est "active"
@@ -747,7 +784,7 @@ async function runCommand(command){
 			console.log(chalk.red(`Aucune sélection n'est active. Utiliser la commande `) + chalk.yellow('select') + chalk.red(' puis réessayer.'))
 
 			// Appeler la fonction pour qu'on puisse entrer une commande
-			return enterCommand()
+			return finishCommand(reAsk)
 		}
 
 		// Faire une copie de la sélection active
@@ -855,7 +892,7 @@ async function runCommand(command){
 				// Si il y a eu une erreur
 				if(response?.code){
 					console.log(chalk.red(response?.message || response?.code || response))
-					return enterCommand()
+					return finishCommand(reAsk)
 				}
 
 			// Enlever certaines informations si il y a eu le flag --hideSensitive
@@ -886,7 +923,7 @@ async function runCommand(command){
 		}
 
 		// Appeler la fonction pour qu'on puisse entrer une commande
-		enterCommand()
+		finishCommand(reAsk)
 	}
 
 	// Si la commande est "friendlist"
@@ -895,20 +932,20 @@ async function runCommand(command){
 		var token = fs.readFileSync(path.join(getConfigPath(), 'token.txt')).toString()
 
 		// Si il n'y a pas de token
-		if(!token) return console.log(chalk.red(`Vous n'êtes pas connecté. Utiliser la commande `) + chalk.yellow('login') + chalk.red(' puis réessayer.')) & enterCommand()
+		if(!token) return console.log(chalk.red(`Vous n'êtes pas connecté. Utiliser la commande `) + chalk.yellow('login') + chalk.red(' puis réessayer.')) & finishCommand(reAsk)
 
 		// Obtenir la liste d'amis
 		var friends = await getFriends(token)
 
 		// Si ce n'est pas un array
-		if(!Array.isArray(friends)) return console.log(chalk.red(friends)) & enterCommand()
+		if(!Array.isArray(friends)) return console.log(chalk.red(friends)) & finishCommand(reAsk)
 
 		// Afficher les amis
 		console.log(`${chalk.green(`${friends?.length} amis`)} :`)
 		console.log(friends.map(friend => `   • ${chalk.bold.cyan(friend?.user?.username)}${(args.includes('--hideSensitive')) ? '' : chalk.cyan('#' + friend?.user?.discriminator)}${(args.includes('--hideSensitive')) ? '' : chalk.dim(`  (ID : ${friend?.user?.id})`)}`).join('\n'))
 
 		// Appeler la fonction pour qu'on puisse entrer une commande
-		enterCommand()
+		finishCommand(reAsk)
 	}
 
 	// Si la commande est "serverlist"
@@ -920,7 +957,7 @@ async function runCommand(command){
 		var token = fs.readFileSync(path.join(getConfigPath(), 'token.txt')).toString()
 
 		// Si il n'y a pas de token
-		if(!token) return console.log(chalk.red(`Vous n'êtes pas connecté. Utiliser la commande `) + chalk.yellow('login') + chalk.red(' puis réessayer.')) & enterCommand()
+		if(!token) return console.log(chalk.red(`Vous n'êtes pas connecté. Utiliser la commande `) + chalk.yellow('login') + chalk.red(' puis réessayer.')) & finishCommand(reAsk)
 
 		// Obtenir la liste des serveurs
 			// Afficher un spinner
@@ -940,13 +977,13 @@ async function runCommand(command){
 					// Modifier le type de compte, et réessayer
 					accountType_bot = true
 					stopThisCommand = true
-					return runCommand(`${command} ${args.join(' ')}`)
+					return runCommand(`${command} ${args.join(' ')}`, reAsk)
 				}
 
 				// Appeler la fonction pour qu'on puisse entrer une commande
 				spinner.fail()
 				stopThisCommand = true
-				return enterCommand()
+				return finishCommand(reAsk)
 			})
 			if(stopThisCommand === true) return;
 
@@ -969,7 +1006,7 @@ async function runCommand(command){
 			console.log(servers.map(server => `   • ${chalk.cyan(server.name)}${(args.includes('--hideSensitive')) ? '' : chalk.dim(`  (ID : ${server.id})`)}`).join('\n'))
 
 			// Appeler la fonction pour qu'on puisse entrer une commande
-			enterCommand()
+			finishCommand(reAsk)
 	}
 
 	// Si la commande est "memberlist"
@@ -981,7 +1018,7 @@ async function runCommand(command){
 		var token = fs.readFileSync(path.join(getConfigPath(), 'token.txt')).toString()
 
 		// Si il n'y a pas de token
-		if(!token) return console.log(chalk.red(`Vous n'êtes pas connecté. Utiliser la commande `) + chalk.yellow('login') + chalk.red(' puis réessayer.')) & enterCommand()
+		if(!token) return console.log(chalk.red(`Vous n'êtes pas connecté. Utiliser la commande `) + chalk.yellow('login') + chalk.red(' puis réessayer.')) & finishCommand(reAsk)
 
 		// Si il n'y a aucune sélection active
 		if(!active_selection.data){
@@ -989,7 +1026,7 @@ async function runCommand(command){
 			console.log(chalk.red(`Aucune sélection n'est active. Utiliser la commande `) + chalk.yellow('select') + chalk.red(' puis réessayer.'))
 
 			// Appeler la fonction pour qu'on puisse entrer une commande
-			return enterCommand()
+			return finishCommand(reAsk)
 		}
 
 		// Faire une copie de la sélection active
@@ -1013,13 +1050,13 @@ async function runCommand(command){
 					// Modifier le type de compte, et réessayer
 					accountType_bot = true
 					stopThisCommand = true
-					return runCommand(`${command} ${args.join(' ')}`)
+					return runCommand(`${command} ${args.join(' ')}`, reAsk)
 				}
 
 				// Appeler la fonction pour qu'on puisse entrer une commande
 				spinner.fail()
 				stopThisCommand = true
-				return enterCommand()
+				return finishCommand(reAsk)
 			})
 			if(stopThisCommand === true) return;
 
@@ -1038,7 +1075,7 @@ async function runCommand(command){
 				console.log(chalk.red(`Aucun membre n'est présent dans la sélection.`))
 
 				// Appeler la fonction pour qu'on puisse entrer une commande
-				return enterCommand()
+				return finishCommand(reAsk)
 			}
 
 			// Si la liste de membre dans la variable members, n'est pas du même nombre que dans la sélection active
@@ -1048,7 +1085,7 @@ async function runCommand(command){
 
 				// Refetch pour ajouter toutes les personnes non présentes dans le cache
 				await cached_client.guilds.cache.get(active_selection_copy.data.id).members.fetch()
-				return runCommand(`${command} ${args.join(' ')}`)
+				return runCommand(`${command} ${args.join(' ')}`, reAsk)
 			}
 
 			// Si on dois s'arrêter
@@ -1062,7 +1099,7 @@ async function runCommand(command){
 			console.log(members.map(member => `   • ${chalk.bold.cyan(member?.user?.username)}${(args.includes('--hideSensitive')) ? '' : chalk.cyan('#' + member?.user?.discriminator)}${(args.includes('--hideSensitive')) ? '' : chalk.dim(`  (ID : ${member?.id})`)}`).join('\n'))
 
 			// Appeler la fonction pour qu'on puisse entrer une commande
-			enterCommand()
+			finishCommand(reAsk)
 
 			// En arrière plan, si le flag "--notWhois" n'est pas activé
 			if(!args.includes('--notWhois')){
@@ -1088,7 +1125,7 @@ async function runCommand(command){
 		var token = fs.readFileSync(path.join(getConfigPath(), 'token.txt')).toString()
 
 		// Si il n'y a pas de token
-		if(!token) return console.log(chalk.red(`Vous n'êtes pas connecté. Utiliser la commande `) + chalk.yellow('login') + chalk.red(' puis réessayer.')) & enterCommand()
+		if(!token) return console.log(chalk.red(`Vous n'êtes pas connecté. Utiliser la commande `) + chalk.yellow('login') + chalk.red(' puis réessayer.')) & finishCommand(reAsk)
 
 		// Si il n'y a aucune sélection active
 		if(!active_selection.data){
@@ -1096,7 +1133,7 @@ async function runCommand(command){
 			console.log(chalk.red(`Aucune sélection n'est active. Utiliser la commande `) + chalk.yellow('select') + chalk.red(' puis réessayer.'))
 
 			// Appeler la fonction pour qu'on puisse entrer une commande
-			return enterCommand()
+			return finishCommand(reAsk)
 		}
 
 		// Faire une copie de la sélection active
@@ -1120,13 +1157,13 @@ async function runCommand(command){
 					// Modifier le type de compte, et réessayer
 					accountType_bot = true
 					stopThisCommand = true
-					return runCommand(`${command} ${args.join(' ')}`)
+					return runCommand(`${command} ${args.join(' ')}`, reAsk)
 				}
 
 				// Appeler la fonction pour qu'on puisse entrer une commande
 				spinner.fail()
 				stopThisCommand = true
-				return enterCommand()
+				return finishCommand(reAsk)
 			})
 			if(stopThisCommand === true) return;
 
@@ -1180,7 +1217,7 @@ async function runCommand(command){
 				console.log(chalk.red(`Aucun messages n'est présent dans la sélection.`))
 
 				// Appeler la fonction pour qu'on puisse entrer une commande
-				return enterCommand()
+				return finishCommand(reAsk)
 			}
 
 			// Arrêter le spinner
@@ -1191,7 +1228,7 @@ async function runCommand(command){
 			console.log(messages.map(message => `   • ${chalk.bold.cyan(message?.author?.username)}${(args.includes('--hideSensitive')) ? '' : chalk.cyan('#' + message?.author?.discriminator)}${(args.includes('--hideSensitive')) ? '' : chalk.dim(`  (${message?.author?.id})`)} : ${message.content.replace(/\n/g,'    ')}`).join('\n'))
 
 			// Appeler la fonction pour qu'on puisse entrer une commande
-			enterCommand()
+			finishCommand(reAsk)
 	}
 
 	// Si la commande est "dmlist"
@@ -1200,14 +1237,14 @@ async function runCommand(command){
 		var token = fs.readFileSync(path.join(getConfigPath(), 'token.txt')).toString()
 
 		// Si il n'y a pas de token
-		if(!token) return console.log(chalk.red(`Vous n'êtes pas connecté. Utiliser la commande `) + chalk.yellow('login') + chalk.red(' puis réessayer.')) & enterCommand()
+		if(!token) return console.log(chalk.red(`Vous n'êtes pas connecté. Utiliser la commande `) + chalk.yellow('login') + chalk.red(' puis réessayer.')) & finishCommand(reAsk)
 
 		// Obtenir la liste des dms et groupe
 		var list = await getDms(token)
 
 		// Si ce n'est pas un array
-		if(!Array.isArray(list?.dms)) return console.log(chalk.red(list?.dms || list)) & enterCommand()
-		if(!Array.isArray(list?.groups)) return console.log(chalk.red(list?.groups || list)) & enterCommand()
+		if(!Array.isArray(list?.dms)) return console.log(chalk.red(list?.dms || list)) & finishCommand(reAsk)
+		if(!Array.isArray(list?.groups)) return console.log(chalk.red(list?.groups || list)) & finishCommand(reAsk)
 
 		// Afficher les résultats
 			// Afficher les groupes
@@ -1222,7 +1259,7 @@ async function runCommand(command){
 			if(list?.dms) console.log(list?.dms?.map(dm => `   • ${chalk.bold.cyan(dm?.username)}${(args.includes('--hideSensitive')) ? '' : chalk.cyan('#' + dm?.discriminator)}${(args.includes('--hideSensitive')) ? '' : chalk.dim(`  (ID : ${dm?.id})`)}`).join('\n'))
 
 		// Appeler la fonction pour qu'on puisse entrer une commande
-		enterCommand()
+		finishCommand(reAsk)
 	}
 
 	// Si la commande est "message"
@@ -1234,7 +1271,7 @@ async function runCommand(command){
 		var token = fs.readFileSync(path.join(getConfigPath(), 'token.txt')).toString()
 
 		// Si il n'y a pas de token
-		if(!token) return console.log(chalk.red(`Vous n'êtes pas connecté. Utiliser la commande `) + chalk.yellow('login') + chalk.red(' puis réessayer.')) & enterCommand()
+		if(!token) return console.log(chalk.red(`Vous n'êtes pas connecté. Utiliser la commande `) + chalk.yellow('login') + chalk.red(' puis réessayer.')) & finishCommand(reAsk)
 
 		// Vérifier si un argument est donné
 		var messageContent = args.join(' ')
@@ -1245,7 +1282,7 @@ async function runCommand(command){
 			console.log(chalk.red(`Argument invalide. Exemple : `) + chalk.yellow('message <contenu de votre message>') + chalk.red(' puis réessayer.'))
 
 			// Appeler la fonction pour qu'on puisse entrer une commande
-			return enterCommand()
+			return finishCommand(reAsk)
 		}
 
 		// Si il n'y a aucune sélection active
@@ -1254,7 +1291,7 @@ async function runCommand(command){
 			console.log(chalk.red(`Aucune sélection n'est active. Utiliser la commande `) + chalk.yellow('select') + chalk.red(' puis réessayer.'))
 
 			// Appeler la fonction pour qu'on puisse entrer une commande
-			return enterCommand()
+			return finishCommand(reAsk)
 		}
 
 		// Se connecter
@@ -1275,13 +1312,13 @@ async function runCommand(command){
 					// Modifier le type de compte, et réessayer
 					accountType_bot = true
 					stopThisCommand = true
-					return runCommand(`${command} ${args.join(' ')}`)
+					return runCommand(`${command} ${args.join(' ')}`, reAsk)
 				}
 
 				// Appeler la fonction pour qu'on puisse entrer une commande
 				spinner.fail()
 				stopThisCommand = true
-				return enterCommand()
+				return finishCommand(reAsk)
 			})
 			if(stopThisCommand === true) return;
 
@@ -1326,7 +1363,7 @@ async function runCommand(command){
 
 				// Appeler la fonction pour qu'on puisse entrer une commande
 				stopThisCommand = true
-				return enterCommand()
+				return finishCommand(reAsk)
 			})
 			if(stopThisCommand === true) return;
 
@@ -1338,7 +1375,7 @@ async function runCommand(command){
 		}
 
 		// Appeler la fonction pour qu'on puisse entrer une commande
-		enterCommand()
+		finishCommand(reAsk)
 	}
 
 	// Si la commande est "leave"
@@ -1350,7 +1387,7 @@ async function runCommand(command){
 		var token = fs.readFileSync(path.join(getConfigPath(), 'token.txt')).toString()
 
 		// Si il n'y a pas de token
-		if(!token) return console.log(chalk.red(`Vous n'êtes pas connecté. Utiliser la commande `) + chalk.yellow('login') + chalk.red(' puis réessayer.')) & enterCommand()
+		if(!token) return console.log(chalk.red(`Vous n'êtes pas connecté. Utiliser la commande `) + chalk.yellow('login') + chalk.red(' puis réessayer.')) & finishCommand(reAsk)
 
 		// Si il n'y a aucune sélection active
 		if(!active_selection.data){
@@ -1358,7 +1395,7 @@ async function runCommand(command){
 			console.log(chalk.red(`Aucune sélection n'est active. Utiliser la commande `) + chalk.yellow('select') + chalk.red(' puis réessayer.'))
 
 			// Appeler la fonction pour qu'on puisse entrer une commande
-			return enterCommand()
+			return finishCommand(reAsk)
 		}
 
 		// Se connecter
@@ -1379,13 +1416,13 @@ async function runCommand(command){
 					// Modifier le type de compte, et réessayer
 					accountType_bot = true
 					stopThisCommand = true
-					return runCommand(`${command} ${args.join(' ')}`)
+					return runCommand(`${command} ${args.join(' ')}`, reAsk)
 				}
 
 				// Appeler la fonction pour qu'on puisse entrer une commande
 				spinner.fail()
 				stopThisCommand = true
-				return enterCommand()
+				return finishCommand(reAsk)
 			})
 			if(stopThisCommand === true) return;
 
@@ -1411,6 +1448,65 @@ async function runCommand(command){
 		}
 
 		// Appeler la fonction pour qu'on puisse entrer une commande
-		enterCommand()
+		finishCommand(reAsk)
+	}
+
+	// Si la commande est "cli-install"
+	if(commandObject.name == "cli-install"){
+		// Préparer une variable
+		var stopThisCommand = false
+
+		// Demander quel CLI installer
+		var whatToInstall = await inquirer.prompt([
+			{
+				type: 'list',
+				name: 'name',
+				message: 'Quel CLI installer ?',
+				choices: [
+					{
+						name: 'Twitterminal',
+						value: 'twitterminal'
+					},
+					{
+						name: 'Ecochat',
+						value: 'ecochat-term'
+					},
+					{
+						name: 'IP Info',
+						value: '@johanstickman/ip-info'
+					},
+					{
+						name: 'Send Over Network',
+						value: 'sendovernetwork'
+					},
+					{
+						name: 'BetterPip',
+						value: 'betterpip'
+					}
+				]
+			}
+		])
+
+		// Si il n'y a pas de réponse
+		if(!whatToInstall.name) return finishCommand(reAsk)
+
+		// Utiliser NPM pour installer le CLI avec child_process
+		require('child_process').execSync(`npm install ${whatToInstall.name} --global`, { stdio: 'inherit' })
+
+		// Obtenir la commande associé au nom du CLI sur NPM
+		var commands = {
+			'twitterminal': 'twitterminal',
+			'ecochat-term': 'ecochat',
+			'@johanstickman/ip-info': 'ip-info',
+			'sendovernetwork': 'sendovernetwork',
+			'betterpip': 'betterpip'
+		}
+
+		// Dire que l'installation est terminé
+		console.log(`${chalk.green(`Installation terminé !`)} Utiliser la commande "${chalk.cyan(commands[whatToInstall.name])}" dans votre vrai shell (pas dans Discord Shell du coup) pour l'utiliser.`)
+		console.log(chalk.dim(`Utiliser la commande "npm uninstall --global ${commands[whatToInstall.name]}" pour désinstaller le CLI.`))
+
+		// Appeler la fonction pour qu'on puisse entrer une commande
+		finishCommand(reAsk)
 	}
 }
