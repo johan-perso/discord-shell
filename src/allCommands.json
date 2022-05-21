@@ -1,4 +1,4 @@
-[
+{"commands": [
 	{
 		"name": "help",
 		"description": "Affiche la liste des commandes.",
@@ -115,13 +115,6 @@
 		]
 	},
 	{
-		"name": "dmlist",
-		"description": "Affiche les DM et groupes",
-		"aliases": [
-			"get-dms"
-		]
-	},
-	{
 		"name": "message",
 		"description": "Permet d'envoyer un message sur la sélection active",
 		"aliases": [
@@ -130,8 +123,20 @@
 		]
 	},
 	{
+		"name": "dmlist",
+		"description": "Affiche les DM et groupes",
+		"aliases": [
+			"get-dms"
+		]
+	},
+	{
 		"name": "leave",
 		"description": "Quitte la sélection active",
 		"aliases": []
+	},
+	{
+		"name": "cli-install",
+		"description": "Permet d'installer des CLIs sur votre appareil",
+		"aliases": ["get-cli"]
 	}
-]
+]}
