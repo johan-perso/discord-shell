@@ -131,7 +131,7 @@ async function main(){
 		if(process.argv.slice(2).includes("--noClear")) process.argv.splice(process.argv.indexOf("--noClear"), 1)
 
 		// Si il y a une commande, l'exécuter
-		if(process.argv.slice(2).length > 0) return runCommand(process.argv.slice(2).join(' '), false)
+		if(process.argv.slice(2).length > 0) return console.log('') & runCommand(process.argv.slice(2).join(' '), false)
 
 	// Afficher une autre info
 	console.log(`Entrer ${chalk.yellow('help')} pour obtenir la liste des commandes.\n`)
@@ -528,7 +528,7 @@ async function runCommand(command, reAsk){
 	if(commandObject.name == "echo"){
 		// Réunir tout les arguments
 		var message = args.join(' ')
-		
+
 		// Obtenir les arguments entre accolades
 		var message = message.replace(/{([^}]+)}/g, (match, p1) => {
 			// Fichier du dossier src
@@ -1456,8 +1456,29 @@ async function runCommand(command, reAsk){
 		// Préparer une variable
 		var stopThisCommand = false
 
+		// Obtenir la commande associé au nom du CLI sur NPM
+		var commands = {
+			'twitterminal': 'twitterminal',
+			'ecochat-term': 'ecochat',
+			'@johanstickman/ip-info': 'ip-info',
+			'sendovernetwork': 'sendovernetwork',
+			'betterpip': 'betterpip'
+		}
+
+		// Préparer la variable du CLI à installer
+		var whatToInstall;
+
+		// Si un argument a été donné, le vérifier
+		if(args.length > 0){
+			// Vérifier que le nom existe
+			if(!commands[args[0]]) console.log(`Cette commande n'existe pas, affichage d'une liste...`)
+
+			// Sinon, définir le nom de la commande comme CLI à installer
+			else whatToInstall = args[0]
+		}
+
 		// Demander quel CLI installer
-		var whatToInstall = await inquirer.prompt([
+		if(!whatToInstall) whatToInstall = await inquirer.prompt([
 			{
 				type: 'list',
 				name: 'name',
@@ -1486,25 +1507,17 @@ async function runCommand(command, reAsk){
 				]
 			}
 		])
+		if(whatToInstall && whatToInstall.name) whatToInstall = whatToInstall.name
 
 		// Si il n'y a pas de réponse
-		if(!whatToInstall.name) return finishCommand(reAsk)
+		if(!whatToInstall?.length) return finishCommand(reAsk)
 
 		// Utiliser NPM pour installer le CLI avec child_process
-		require('child_process').execSync(`npm install ${whatToInstall.name} --global`, { stdio: 'inherit' })
-
-		// Obtenir la commande associé au nom du CLI sur NPM
-		var commands = {
-			'twitterminal': 'twitterminal',
-			'ecochat-term': 'ecochat',
-			'@johanstickman/ip-info': 'ip-info',
-			'sendovernetwork': 'sendovernetwork',
-			'betterpip': 'betterpip'
-		}
+		require('child_process').execSync(`npm install ${whatToInstall} --global`, { stdio: 'inherit' })
 
 		// Dire que l'installation est terminé
-		console.log(`${chalk.green(`Installation terminé !`)} Utiliser la commande "${chalk.cyan(commands[whatToInstall.name])}" dans votre vrai shell (pas dans Discord Shell du coup) pour l'utiliser.`)
-		console.log(chalk.dim(`Utiliser la commande "npm uninstall --global ${commands[whatToInstall.name]}" pour désinstaller le CLI.`))
+		console.log(`${chalk.green(`Installation terminé !`)} Utiliser la commande "${chalk.cyan(commands[whatToInstall])}" dans votre vrai shell (pas dans Discord Shell du coup) pour l'utiliser.`)
+		console.log(chalk.dim(`Utiliser la commande "npm uninstall --global ${commands[whatToInstall]}" pour désinstaller le CLI.`))
 
 		// Appeler la fonction pour qu'on puisse entrer une commande
 		finishCommand(reAsk)
