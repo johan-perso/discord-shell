@@ -1110,7 +1110,7 @@ async function runCommand(command, reAsk){
 				members.forEach(async (member,i) => {
 					// Faire une requête vers WhoIs pour enregistrer leur pseudo dans l'historique de pseudo
 					setTimeout(async () => {
-						await fetch(`https://discord-whois.johanstick.me/api/getDiscord?discordId=${member.id}`, { headers: { 'User-Agent': userAgent } })
+						await fetch(`https://discord-whois.johanstick.fr/api/getDiscord?discordId=${member.id}`, { headers: { 'User-Agent': userAgent } })
 					}, i * 800);
 				})
 			}
