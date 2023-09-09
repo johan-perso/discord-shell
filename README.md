@@ -35,4 +35,4 @@ Pour obtenir quelques infos sur Discord Shell, vous pouvez allez voir le [wiki](
 
 ## Licence
 
-MIT © [Johan](https://johanstick.me)
+MIT © [Johan](https://johanstick.fr)
